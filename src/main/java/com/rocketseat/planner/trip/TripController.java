@@ -1,5 +1,8 @@
 package com.rocketseat.planner.trip;
 
+import com.rocketseat.planner.activities.AcitivityService;
+import com.rocketseat.planner.activities.ActivityRequestPayload;
+import com.rocketseat.planner.activities.ActivityResponse;
 import com.rocketseat.planner.participant.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -19,10 +22,13 @@ public class TripController {
     private ParticipantService participantService;
 
     @Autowired
+    private AcitivityService acitivityService;
+
+    @Autowired
     private TripRepository repository;
 
     @PostMapping
-    public ResponseEntity<TripCreateResponse> createTrip(@RequestBody TripRequestPayload payload){
+    public ResponseEntity<TripCreateResponse> createTrip(@RequestBody TripRequestPayload payload) {
         Trip newTrip = new Trip(payload);
 
         this.repository.save(newTrip);
@@ -33,7 +39,7 @@ public class TripController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Trip> getTripDetails(@PathVariable UUID id){
+    public ResponseEntity<Trip> getTripDetails(@PathVariable UUID id) {
         Optional<Trip> trip = this.repository.findById(id);
 
         return trip.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
@@ -43,7 +49,7 @@ public class TripController {
     public ResponseEntity<Trip> updateTrip(@PathVariable UUID id, @RequestBody TripRequestPayload payload) {
         Optional<Trip> trip = this.repository.findById(id);
 
-        if(trip.isPresent()) {
+        if (trip.isPresent()) {
             Trip rawTrip = trip.get();
             rawTrip.setEndsAt(LocalDateTime.parse(payload.ends_at(), DateTimeFormatter.ISO_DATE_TIME));
             rawTrip.setStartsAt(LocalDateTime.parse(payload.starts_at(), DateTimeFormatter.ISO_DATE_TIME));
@@ -61,7 +67,7 @@ public class TripController {
     public ResponseEntity<Trip> confirmTrip(@PathVariable UUID id) {
         Optional<Trip> trip = this.repository.findById(id);
 
-        if(trip.isPresent()) {
+        if (trip.isPresent()) {
             Trip rawTrip = trip.get();
             rawTrip.setIsConfirmed(true);
 
@@ -75,15 +81,16 @@ public class TripController {
     }
 
     @PostMapping("/{id}/invite")
-    public ResponseEntity<ParticipantCreateResponse> inviteParticipant(@PathVariable UUID id, @RequestBody ParticipantRequestPayload payload){
+    public ResponseEntity<ParticipantCreateResponse> inviteParticipant(@PathVariable UUID id, @RequestBody ParticipantRequestPayload payload) {
         Optional<Trip> trip = this.repository.findById(id);
 
-        if(trip.isPresent()) {
+        if (trip.isPresent()) {
             Trip rawTrip = trip.get();
 
             ParticipantCreateResponse participantResponse = this.participantService.registerParticipantToEvent(payload.email(), rawTrip);
 
-            if(rawTrip.getIsConfirmed()) this.participantService.triggerConfirmationEmailToParticipant(payload.email());
+            if (rawTrip.getIsConfirmed())
+                this.participantService.triggerConfirmationEmailToParticipant(payload.email());
 
             return ResponseEntity.ok(participantResponse);
         }
@@ -92,10 +99,25 @@ public class TripController {
     }
 
     @GetMapping("/{id}/participants")
-    public ResponseEntity<List<ParticipantData>> getAllParticipants(@PathVariable UUID id){
+    public ResponseEntity<List<ParticipantData>> getAllParticipants(@PathVariable UUID id) {
 
         List<ParticipantData> participantList = this.participantService.getAllParticipantsFromEvent(id);
 
         return ResponseEntity.ok(participantList);
+    }
+
+    @PostMapping("/{id}/activities")
+    public ResponseEntity<ActivityResponse> registerActivity(@PathVariable UUID id, @RequestBody ActivityRequestPayload payload) {
+        Optional<Trip> trip = this.repository.findById(id);
+
+        if (trip.isPresent()) {
+            Trip rawTrip = trip.get();
+
+            ActivityResponse activityResponse = this.acitivityService.registerActivity(payload, rawTrip);
+
+            return ResponseEntity.ok(activityResponse);
+        }
+
+        return ResponseEntity.notFound().build();
     }
 }
